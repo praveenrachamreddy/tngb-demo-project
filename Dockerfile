@@ -1,5 +1,5 @@
 # Use an official OpenJDK runtime as a parent image
-FROM image-registry.openshift-image-registry.svc:5000/openshift/java:openjdk-17-ubi8
+FROM openjdk:17-jdk-alpine
 
 # Set the working directory in the container
 WORKDIR /app
