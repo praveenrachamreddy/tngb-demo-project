@@ -52,7 +52,7 @@
 			<setHeader name="CamelRedis.Key">
 				<simple>${header.accountno}</simple>
 			</setHeader>
-			<to uri="spring-redis://{{redis.url}}?command=GET" />
+			<to uri="spring-redis://{{redis.url}}?connectionFactory=#connectionFactory&amp;command=GET" />
 			<log message="redis body :: ${body}" />
 			<choice>
 				<when>
@@ -68,14 +68,14 @@
 					<setHeader name="CamelRedis.Value">
 						<simple>${body}</simple>
 					</setHeader>
-					<to uri="spring-redis://{{redis.url}}?command=SET" />
+					<to uri="spring-redis://{{redis.url}}?connectionFactory=#connectionFactory&amp;command=SET" />
 					<setHeader name="CamelRedis.Key">
 						<simple>${header.accountno}</simple>
 					</setHeader>
 					<setHeader name="CamelRedis.Timeout">
 						<constant>{{redis.cache.time.in.seconds}}</constant>
 					</setHeader>
-					<to uri="spring-redis://{{redis.url}}?command=EXPIRE" />
+					<to uri="spring-redis://{{redis.url}}?connectionFactory=#connectionFactory&amp;command=EXPIRE" />
 					<setBody>
 						<simple>${exchangeProperty.responseBody}</simple>
 					</setBody>
@@ -93,7 +93,7 @@
 			<setHeader name="CamelRedis.Key">
 				<constant>ALLACCOUNTS</constant>
 			</setHeader>
-			<to uri="spring-redis://{{redis.url}}?command=GET" />
+			<to uri="spring-redis://{{redis.url}}?connectionFactory=#connectionFactory&amp;command=GET" />
 			<log message="redis body :: ${body}" />
 			<choice>
 				<when>
@@ -109,14 +109,14 @@
 					<setHeader name="CamelRedis.Value">
 						<simple>${body}</simple>
 					</setHeader>
-					<to uri="spring-redis://{{redis.url}}?command=SET" />
+					<to uri="spring-redis://{{redis.url}}?connectionFactory=#connectionFactory&amp;command=SET" />
 					<setHeader name="CamelRedis.Key">
 						<simple>ALLACCOUNTS</simple>
 					</setHeader>
 					<setHeader name="CamelRedis.Timeout">
 						<constant>{{redis.cache.time.in.seconds}}</constant>
 					</setHeader>
-					<to uri="spring-redis://{{redis.url}}?command=EXPIRE" />
+					<to uri="spring-redis://{{redis.url}}?connectionFactory=#connectionFactory&amp;command=EXPIRE" />
 					<setBody>
 						<simple>${exchangeProperty.responseBody}</simple>
 					</setBody>
@@ -131,7 +131,7 @@
 		</route>
 		<route id="cache-clear-route">
 			<from uri="direct:cache-clear" />
-			<to uri="spring-redis://{{redis.url}}?command=FLUSHALL" />
+			<to uri="spring-redis://{{redis.url}}?connectionFactory=#connectionFactory&amp;command=FLUSHALL" />
 		</route>
 	</routeContext>
 </beans>

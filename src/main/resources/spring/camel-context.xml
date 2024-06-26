@@ -31,6 +31,12 @@
 		<property name="connectionFactory" ref="jmsConnectionFactory" />
 	</bean>
 
+	<bean id="connectionFactory" class="org.springframework.data.redis.connection.jedis.JedisConnectionFactory">
+		<property name="hostName" value="${redis.host}" />
+		<property name="port" value="${redis.port}" />
+		<property name="password" value="${redis.password}" />
+	</bean>
+
 	<import resource="databaseoperations.xml" />
 
 	<camelContext id="tngb-demo-project" xmlns="http://camel.apache.org/schema/spring">
