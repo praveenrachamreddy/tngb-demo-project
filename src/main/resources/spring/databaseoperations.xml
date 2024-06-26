@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+       http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://camel.apache.org/schema/spring       http://camel.apache.org/schema/spring/camel-spring.xsd">
+	<routeContext id="databaseOperations" xmlns="http://camel.apache.org/schema/spring">
+		<route id="createqueue">
+			<from uri="direct:createqueue" />
+			<log message="pushing the record to the Queue !!!" />
+			<setExchangePattern pattern="InOnly"/>
+			<to uri="amqp:queue:TngbDemoQueue" />
+			<setBody>
+				<simple>{"status":"Pushed to Queue to Create!!"}</simple>
+			</setBody>
+		</route>
+		<route id="fromqueue" autoStartup="false">
+			<from uri="amqp:queue:TngbDemoQueue" />
+			<log message="Read the record from the Queue !!!" />
+			<to uri="direct:create" />
+		</route>
+		<route id="fromqueueendpoint">
+			<from uri="direct:startqueueconsumer" />
+			<to uri="controlbus:route?routeId=fromqueue&amp;action=start" />
+		</route>
+		<route id="fromqueueendpoint1">
+			<from uri="direct:stopqueueconsumer" />
+			<to uri="controlbus:route?routeId=fromqueue&amp;action=stop" />
+		</route>
+		<route id="create-route">
+			<from uri="direct:create" />
+			<transacted ref="PROPAGATION_REQUIRED" />
+			<unmarshal>
+				<custom ref="jacksonJson" />
+			</unmarshal>
+			<setBody>
+				<simple>INSERT INTO account_info (firstname, lastname, email, mobileno) VALUES ('${body[firstname]}', '${body[lastname]}','${body[email]}','${body[mobileno]}')</simple>
+			</setBody>
+			<to uri="jdbc:dataSource" />
+			<log message="Data inserted Successfully into Database !!!" />
+			<to uri="direct:cache-clear" />
+			<to uri="direct:getlastrecord" />
+		</route>
+		<route>
+			<from uri="direct:getlastrecord" />
+			<to uri="sql:SELECT * FROM account_info ORDER BY accountno DESC LIMIT 1" />
+			<marshal>
+				<custom ref="jacksonJson" />
+			</marshal>
+		</route>
+		<route id="read-route">
+			<from uri="direct:read" />
+			<setHeader name="CamelRedis.Key">
+				<simple>${header.accountno}</simple>
+			</setHeader>
+			<to uri="spring-redis://{{redis.url}}?command=GET" />
+			<log message="redis body :: ${body}" />
+			<choice>
+				<when>
+					<simple>${body} == null || ${body} == ""</simple>
+					<log message="getting from mysql!!!" />
+					<to uri="sql:SELECT * FROM account_info WHERE accountno = :#accountno" />
+					<setProperty name="responseBody">
+						<simple>${body}</simple>
+					</setProperty>
+					<setHeader name="CamelRedis.Key">
+						<simple>${header.accountno}</simple>
+					</setHeader>
+					<setHeader name="CamelRedis.Value">
+						<simple>${body}</simple>
+					</setHeader>
+					<to uri="spring-redis://{{redis.url}}?command=SET" />
+					<setHeader name="CamelRedis.Key">
+						<simple>${header.accountno}</simple>
+					</setHeader>
+					<setHeader name="CamelRedis.Timeout">
+						<constant>{{redis.cache.time.in.seconds}}</constant>
+					</setHeader>
+					<to uri="spring-redis://{{redis.url}}?command=EXPIRE" />
+					<setBody>
+						<simple>${exchangeProperty.responseBody}</simple>
+					</setBody>
+				</when>
+				<otherwise>
+					<log message="getting from redis !!!" />
+				</otherwise>
+			</choice>
+			<marshal>
+				<custom ref="jacksonJson" />
+			</marshal>
+		</route>
+		<route id="read-route1">
+			<from uri="direct:getaccounts" />
+			<setHeader name="CamelRedis.Key">
+				<constant>ALLACCOUNTS</constant>
+			</setHeader>
+			<to uri="spring-redis://{{redis.url}}?command=GET" />
+			<log message="redis body :: ${body}" />
+			<choice>
+				<when>
+					<simple>${body} == null || ${body} == ""</simple>
+					<log message="getting from mysql!!!" />
+					<to uri="sql:SELECT * FROM account_info" />
+					<setProperty name="responseBody">
+						<simple>${body}</simple>
+					</setProperty>
+					<setHeader name="CamelRedis.Key">
+						<simple>ALLACCOUNTS</simple>
+					</setHeader>
+					<setHeader name="CamelRedis.Value">
+						<simple>${body}</simple>
+					</setHeader>
+					<to uri="spring-redis://{{redis.url}}?command=SET" />
+					<setHeader name="CamelRedis.Key">
+						<simple>ALLACCOUNTS</simple>
+					</setHeader>
+					<setHeader name="CamelRedis.Timeout">
+						<constant>{{redis.cache.time.in.seconds}}</constant>
+					</setHeader>
+					<to uri="spring-redis://{{redis.url}}?command=EXPIRE" />
+					<setBody>
+						<simple>${exchangeProperty.responseBody}</simple>
+					</setBody>
+				</when>
+				<otherwise>
+					<log message="getting from redis !!!" />
+				</otherwise>
+			</choice>
+			<marshal>
+				<custom ref="jacksonJson" />
+			</marshal>
+		</route>
+		<route id="cache-clear-route">
+			<from uri="direct:cache-clear" />
+			<to uri="spring-redis://{{redis.url}}?command=FLUSHALL" />
+		</route>
+	</routeContext>
+</beans>

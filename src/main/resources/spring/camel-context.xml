@@ -3,9 +3,40 @@
 	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
 						http://camel.apache.org/schema/spring http://camel.apache.org/schema/spring/camel-spring.xsd">
 
-	<bean class="java.util.Properties" id="myProperties" />
+	<bean id="dataSource" class="org.apache.commons.dbcp2.BasicDataSource">
+		<property name="driverClassName" value="com.mysql.cj.jdbc.Driver" />
+		<property name="url" value="${db.url}" />
+		<property name="username" value="${db.user}" />
+		<property name="password" value="${db.pass}" />
+	</bean>
+
+	<bean id="sql" class="org.apache.camel.component.sql.SqlComponent">
+		<property name="dataSource" ref="dataSource" />
+	</bean>
+	<bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+		<property name="dataSource" ref="dataSource" />
+	</bean>
+
+	<bean id="PROPAGATION_REQUIRED" class="org.apache.camel.spring.spi.SpringTransactionPolicy">
+		<property name="transactionManager" ref="transactionManager" />
+		<property name="propagationBehaviorName" value="PROPAGATION_REQUIRED" />
+	</bean>
+
+	<bean class="org.apache.qpid.jms.JmsConnectionFactory" id="jmsConnectionFactory">
+		<property name="username" value="${amqp.username}" />
+		<property name="password" value="${amqp.password}" />
+		<property name="remoteURI" value="${amqp.url}" />
+	</bean>
+	<bean class="org.apache.camel.component.sjms2.Sjms2Component" id="amqp">
+		<property name="connectionFactory" ref="jmsConnectionFactory" />
+	</bean>
+
+	<import resource="databaseoperations.xml" />
 
 	<camelContext id="tngb-demo-project" xmlns="http://camel.apache.org/schema/spring">
+
+		<routeContextRef ref="databaseOperations" />
+
 		<dataFormats>
 			<json id="jacksonJson" library="Jackson" />
 			<jacksonXml id="jacksonXml" />
@@ -20,6 +51,30 @@
 				<responseMessage message="Service is Up and Running" />
 				<to uri="direct:health" />
 			</get>
+			<post path="/jsontoxml">
+				<to uri="direct:jsontoxml" />
+			</post>
+			<post path="/xmltojson">
+				<to uri="direct:xmltojson" />
+			</post>
+			<post path="/generateaccount">
+				<to uri="direct:create" />
+			</post>
+			<post path="/generateaccountwithqueue">
+				<to uri="direct:createqueue" />
+			</post>
+			<get path="/getaccount" produces="application/json">
+				<to uri="direct:read" />
+			</get>
+			<get path="/getaccounts" produces="application/json">
+				<to uri="direct:getaccounts" />
+			</get>
+			<get path="/startqueueconsumer" produces="application/json">
+				<to uri="direct:startqueueconsumer" />
+			</get>
+			<get path="/stopqueueconsumer" produces="application/json">
+				<to uri="direct:stopqueueconsumer" />
+			</get>
 		</rest>
 
 		<route>
@@ -28,7 +83,30 @@
 				<constant>Service is Up and Running</constant>
 			</setBody>
 		</route>
-
+		<route>
+			<from uri="direct:jsontoxml" />
+			<log message="received request body :: ${body}" />
+			<unmarshal>
+				<custom ref="jacksonJson" />
+			</unmarshal>
+			<log message="unmarshall body :: ${body}" />
+			<marshal>
+				<custom ref="jacksonXml" />
+			</marshal>
+			<log message="xml request body :: ${body}" />
+		</route>
+		<route>
+			<from uri="direct:xmltojson" />
+			<log message="received request body :: ${body}" />
+			<unmarshal>
+				<custom ref="jacksonXml" />
+			</unmarshal>
+			<log message="unmarshall body :: ${body}" />
+			<marshal>
+				<custom ref="jacksonJson" />
+			</marshal>
+			<log message="json request body :: ${body}" />
+		</route>
 	</camelContext>
 
 
